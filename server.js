@@ -1,0 +1,415 @@
+require('dotenv').config();
+const express = require('express');
+const Anthropic = require('@anthropic-ai/sdk');
+const fetch = require('node-fetch');
+const { google } = require('googleapis');
+const path = require('path');
+
+const app = express();
+app.use(express.json());
+app.use(express.static(__dirname));
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+// ─── In-memory token store ───────────────────────────────────────────────────
+let gmailTokens = null;
+let calendarTokens = null;
+
+// ─── OAuth2 Clients ──────────────────────────────────────────────────────────
+const gmailOAuth2 = new google.auth.OAuth2(
+  process.env.GOOGLE_GMAIL_CLIENT_ID,
+  process.env.GOOGLE_GMAIL_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI
+);
+
+const calendarOAuth2 = new google.auth.OAuth2(
+  process.env.GOOGLE_CALENDAR_CLIENT_ID,
+  process.env.GOOGLE_CALENDAR_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI
+);
+
+// ─── System Prompt ───────────────────────────────────────────────────────────
+const MASTER_SYSTEM_PROMPT = `You are the Endeavor Agent — an AI assistant for Endeavor Evolution Enterprises LLC, a North Miami Beach-based holding company offering Credit Repair, Business Funding, and LLC Formation services.
+
+Owner: Witson | Website: https://www.endeavorevolt.com | Phone: (786) 520-1734
+Booking: https://calendar.notion.so/meet/loceanw/book
+
+You have access to the following live data actions. When the user's intent matches, respond with ONLY the exact action tag — nothing else.
+
+MONDAY CRM:
+- To view leads from any board → respond with: ACTION:GET_LEADS
+- To onboard a new lead → respond with: ACTION:ONBOARDING
+
+NOTION TASKS:
+- To view tasks or to-do items → respond with: ACTION:GET_TASKS
+- To create a new task → respond with: ACTION:CREATE_TASK
+
+GMAIL:
+- To check email, inbox, or messages → respond with: ACTION:GET_EMAILS
+- To send an email → respond with: ACTION:SEND_EMAIL:{"to":"email","subject":"subject","body":"body"}
+
+GOOGLE CALENDAR:
+- To check schedule, meetings, or calendar → respond with: ACTION:GET_CALENDAR_EVENTS
+- To create a calendar event → respond with: ACTION:CREATE_CALENDAR_EVENT
+
+For all other questions, respond helpfully as the Endeavor Agent.`;
+
+// ─── Monday CRM Helpers ──────────────────────────────────────────────────────
+const MONDAY_BOARDS = {
+  CREDIT:     { id: '18392231096', name: 'Credit Leads' },
+  FUNDING:    { id: '18392232978', name: 'Funding Leads' },
+  LLC:        { id: '18392233062', name: 'LLC Filing Leads' },
+  MANAGEMENT: { id: '18395864294', name: 'Management Leads' },
+};
+
+async function getMondayLeads() {
+  const results = [];
+  for (const [div, board] of Object.entries(MONDAY_BOARDS)) {
+    const query = `{ boards(ids: ${board.id}) { items_page(limit: 10) { items { id name column_values { id text } } } } }`;
+    const res = await fetch('https://api.monday.com/v2', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: process.env.MONDAY_API_KEY },
+      body: JSON.stringify({ query }),
+    });
+    const data = await res.json();
+    const items = data?.data?.boards?.[0]?.items_page?.items || [];
+    results.push({ division: div, boardName: board.name, leads: items });
+  }
+  return results;
+}
+
+// ─── Notion Helpers ──────────────────────────────────────────────────────────
+async function getNotionTasks() {
+  const res = await fetch(`https://api.notion.com/v1/databases/${process.env.NOTION_TASKS_DB}/query`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.NOTION_TOKEN}`,
+      'Notion-Version': '2022-06-28',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ page_size: 20 }),
+  });
+  return res.json();
+}
+
+async function createNotionTask(title, description = '', dueDate = null) {
+  const properties = {
+    'Task name': { title: [{ text: { content: title } }] },
+  };
+  if (description) properties['Description'] = { rich_text: [{ text: { content: description } }] };
+  if (dueDate) properties['Due date'] = { date: { start: dueDate } };
+
+  const res = await fetch('https://api.notion.com/v1/pages', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.NOTION_TOKEN}`,
+      'Notion-Version': '2022-06-28',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ parent: { database_id: process.env.NOTION_TASKS_DB }, properties }),
+  });
+  return res.json();
+}
+
+// ─── Gmail Helpers ───────────────────────────────────────────────────────────
+async function getGmailInbox() {
+  if (!gmailTokens) throw new Error('Gmail not authenticated. Visit /auth/gmail first.');
+  gmailOAuth2.setCredentials(gmailTokens);
+  const gmail = google.gmail({ version: 'v1', auth: gmailOAuth2 });
+  const list = await gmail.users.messages.list({ userId: 'me', maxResults: 10, labelIds: ['INBOX'] });
+  const messages = list.data.messages || [];
+  const emails = await Promise.all(messages.map(async (m) => {
+    const msg = await gmail.users.messages.get({ userId: 'me', id: m.id, format: 'metadata', metadataHeaders: ['From', 'Subject', 'Date'] });
+    const headers = msg.data.payload.headers;
+    const get = (name) => headers.find(h => h.name === name)?.value || '';
+    return { id: m.id, from: get('From'), subject: get('Subject'), date: get('Date'), snippet: msg.data.snippet };
+  }));
+  return emails;
+}
+
+async function sendGmail({ to, subject, body }) {
+  if (!gmailTokens) throw new Error('Gmail not authenticated. Visit /auth/gmail first.');
+  gmailOAuth2.setCredentials(gmailTokens);
+  const gmail = google.gmail({ version: 'v1', auth: gmailOAuth2 });
+  const raw = Buffer.from(
+    `To: ${to}\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body}`
+  ).toString('base64url');
+  return gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
+}
+
+// ─── Calendar Helpers ─────────────────────────────────────────────────────────
+async function getCalendarEvents() {
+  if (!calendarTokens) throw new Error('Calendar not authenticated. Visit /auth/calendar first.');
+  calendarOAuth2.setCredentials(calendarTokens);
+  const cal = google.calendar({ version: 'v3', auth: calendarOAuth2 });
+  const res = await cal.events.list({
+    calendarId: 'primary',
+    timeMin: new Date().toISOString(),
+    maxResults: 10,
+    singleEvents: true,
+    orderBy: 'startTime',
+  });
+  return res.data.items || [];
+}
+
+async function createCalendarEvent({ summary, description, start, end }) {
+  if (!calendarTokens) throw new Error('Calendar not authenticated. Visit /auth/calendar first.');
+  calendarOAuth2.setCredentials(calendarTokens);
+  const cal = google.calendar({ version: 'v3', auth: calendarOAuth2 });
+  const res = await cal.events.insert({
+    calendarId: 'primary',
+    requestBody: { summary, description, start: { dateTime: start }, end: { dateTime: end } },
+  });
+  return res.data;
+}
+
+// ─── OAuth Routes ─────────────────────────────────────────────────────────────
+app.get('/auth/gmail', (req, res) => {
+  const url = gmailOAuth2.generateAuthUrl({
+    access_type: 'offline',
+    scope: ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.send'],
+    state: 'gmail',
+  });
+  res.redirect(url);
+});
+
+app.get('/auth/calendar', (req, res) => {
+  const url = calendarOAuth2.generateAuthUrl({
+    access_type: 'offline',
+    scope: ['https://www.googleapis.com/auth/calendar'],
+    state: 'calendar',
+  });
+  res.redirect(url);
+});
+
+app.get('/auth/google/callback', async (req, res) => {
+  const { code, state } = req.query;
+  try {
+    if (state === 'gmail') {
+      const { tokens } = await gmailOAuth2.getToken(code);
+      gmailTokens = tokens;
+      res.send('<h2>✅ Gmail connected! You can close this tab.</h2>');
+    } else if (state === 'calendar') {
+      const { tokens } = await calendarOAuth2.getToken(code);
+      calendarTokens = tokens;
+      res.send('<h2>✅ Google Calendar connected! You can close this tab.</h2>');
+    } else {
+      res.send('<h2>Unknown state. Try again.</h2>');
+    }
+  } catch (err) {
+    console.error('OAuth callback error:', err.message);
+    res.status(500).send('<h2>Auth failed: ' + err.message + '</h2>');
+  }
+});
+
+// ─── Gmail API Routes ─────────────────────────────────────────────────────────
+app.get('/api/gmail/inbox', async (req, res) => {
+  try {
+    const emails = await getGmailInbox();
+    res.json({ emails });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/gmail/send', async (req, res) => {
+  try {
+    await sendGmail(req.body);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Calendar API Routes ──────────────────────────────────────────────────────
+app.get('/api/calendar/events', async (req, res) => {
+  try {
+    const events = await getCalendarEvents();
+    res.json({ events });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/calendar/create', async (req, res) => {
+  try {
+    const event = await createCalendarEvent(req.body);
+    res.json({ success: true, event });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Main Chat Route ──────────────────────────────────────────────────────────
+app.post(['/api/chat', '/api/agent'], async (req, res) => {
+  const { message = req.body.prompt, history = [] } = req.body;
+
+  try {
+    const messages = [
+      ...history,
+      { role: 'user', content: message },
+    ];
+
+    const completion = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: MASTER_SYSTEM_PROMPT,
+      messages,
+    });
+
+    const response = completion.content[0].text.trim();
+
+    // ── Action Router ──────────────────────────────────────────────────────
+    // `action` declared at the top so all branches have access
+    let action = null;
+
+    if (response.startsWith('ACTION:GET_LEADS')) {
+      action = 'GET_LEADS';
+      const allLeads = await getMondayLeads();
+      let html = '<strong>📋 Monday CRM Leads</strong><br><br>';
+      for (const board of allLeads) {
+        html += `<strong>${board.division} — ${board.boardName}</strong><br>`;
+        if (board.leads.length === 0) {
+          html += 'No leads found.<br>';
+        } else {
+          board.leads.forEach(lead => { html += `• ${lead.name}<br>`; });
+        }
+        html += '<br>';
+      }
+      return res.json({ reply: html, action });
+    }
+
+    if (response.startsWith('ACTION:ONBOARDING')) {
+      action = 'ONBOARDING';
+      return res.json({
+        reply: `<strong>🚀 New Lead Onboarding</strong><br><br>
+Please provide the following details:<br>
+• Full Name<br>
+• Email Address<br>
+• Phone Number<br>
+• Service Needed (Credit / Funding / LLC)<br>
+• Notes`,
+        action,
+      });
+    }
+
+    if (response.startsWith('ACTION:GET_TASKS')) {
+      action = 'GET_TASKS';
+      const data = await getNotionTasks();
+      const tasks = data.results || [];
+      let html = '<strong>✅ Notion Tasks</strong><br><br>';
+      if (tasks.length === 0) {
+        html += 'No tasks found.';
+      } else {
+        tasks.forEach(t => {
+          const title = t.properties?.['Task name']?.title?.[0]?.text?.content || 'Untitled';
+          const status = t.properties?.Status?.status?.name || 'No status';
+          const due = t.properties?.['Due date']?.date?.start || '';
+          html += `• <strong>${title}</strong> — ${status}${due ? ' | Due: ' + due : ''}<br>`;
+        });
+      }
+      return res.json({ reply: html, action });
+    }
+
+    if (response.startsWith('ACTION:CREATE_TASK')) {
+      action = 'CREATE_TASK';
+      const titleMatch = message.match(/task[:\s]+(.+)/i);
+      const title = titleMatch ? titleMatch[1].trim() : message;
+      await createNotionTask(title);
+      return res.json({ reply: `✅ Task created: <strong>${title}</strong>`, action });
+    }
+
+    if (response.startsWith('ACTION:GET_EMAILS')) {
+      action = 'GET_EMAILS';
+      const emails = await getGmailInbox();
+      let html = '<strong>📬 Gmail Inbox (Latest 10)</strong><br><br>';
+      if (emails.length === 0) {
+        html += 'No emails found.';
+      } else {
+        emails.forEach(e => {
+          html += `<strong>${e.subject || '(no subject)'}</strong><br>`;
+          html += `From: ${e.from}<br>`;
+          html += `<em>${e.snippet}</em><br><br>`;
+        });
+      }
+      return res.json({ reply: html, action });
+    }
+
+    if (response && response.startsWith('ACTION:SEND_EMAIL:')) {
+  action = 'SEND_EMAIL';
+  try {
+    const jsonStr = response.replace('ACTION:SEND_EMAIL:', '').trim();
+    const payload = JSON.parse(jsonStr);
+    await sendGmail(payload);
+    return res.json({ reply: `✅ Email sent to <strong>${payload.to}</strong>`, action });
+  } catch (parseErr) {
+    // Try to extract to/subject/body from the original user message
+    const toMatch = message.match(/to[:\s]+([^\s,]+@[^\s,]+)/i);
+    const subjectMatch = message.match(/subject[:\s]+([^,\.]+)/i);
+    const bodyMatch = message.match(/body[:\s]+(.+)/i);
+    if (toMatch && subjectMatch && bodyMatch) {
+      const payload = {
+        to: toMatch[1].trim(),
+        subject: subjectMatch[1].trim(),
+        body: bodyMatch[1].trim()
+      };
+      await sendGmail(payload);
+      return res.json({ reply: `✅ Email sent to <strong>${payload.to}</strong>`, action });
+    }
+    return res.json({ reply: '⚠️ Please use this format: "Send email to name@email.com subject: Your Subject body: Your message here"', action });
+  }
+}
+
+    if (response.startsWith('ACTION:GET_CALENDAR_EVENTS')) {
+      action = 'GET_CALENDAR_EVENTS';
+      const events = await getCalendarEvents();
+      let html = '<strong>📅 Upcoming Calendar Events</strong><br><br>';
+      if (events.length === 0) {
+        html += 'No upcoming events.';
+      } else {
+        events.forEach(e => {
+          const start = e.start?.dateTime || e.start?.date || '';
+          const date = start ? new Date(start).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+          html += `• <strong>${e.summary || 'Untitled'}</strong>${date ? ' — ' + date : ''}<br>`;
+        });
+      }
+      return res.json({ reply: html, action });
+    }
+
+    if (response.startsWith('ACTION:CREATE_CALENDAR_EVENT')) {
+      action = 'CREATE_CALENDAR_EVENT';
+      return res.json({
+        reply: `📅 To create a calendar event, please provide:<br>
+• Event title<br>
+• Start date & time (e.g., 2026-03-15T10:00:00)<br>
+• End date & time<br>
+• Description (optional)`,
+        action,
+      });
+    }
+
+    // Default: plain response
+    return res.json({ reply: response });
+
+  } catch (err) {
+    console.error('Chat error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Health Check ─────────────────────────────────────────────────────────────
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    gmail: gmailTokens ? 'connected' : 'not connected — visit /auth/gmail',
+    calendar: calendarTokens ? 'connected' : 'not connected — visit /auth/calendar',
+  });
+});
+
+// ─── Serve index.html ─────────────────────────────────────────────────────────
+
+// ─── Start ────────────────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Endeavor Agent v3.0 running on port ${PORT} — Notion + Monday Lead Intelligence active`);
+});

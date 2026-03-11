@@ -1,0 +1,788 @@
+<html lang="en"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Endeavor Agent</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: #f4f6f9; color: #0a2540; min-height: 100vh; }
+    header { background: #0a2540; padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-family: 'Playfair Display', serif; color: #fff; font-size: 22px; letter-spacing: 1px; }
+    header p { color: #aab4c4; font-size: 12px; margin-top: 4px; }
+    .status { display: inline-block; background: #1a4a7a; color: #fff; border-radius: 20px; padding: 6px 16px; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+    .container { max-width: 1080px; margin: 40px auto; padding: 0 20px; }
+    .card { background: #fff; border-radius: 10px; padding: 28px; margin-bottom: 24px; border: 1px solid #dce3ed; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .card h2 { font-family: 'Playfair Display', serif; color: #0a2540; font-size: 18px; border-bottom: 2px solid #1a4a7a; padding-bottom: 10px; margin-bottom: 6px; }
+    .card-subtitle { font-size: 12px; color: #8a9ab0; margin-bottom: 18px; margin-top: 4px; }
+    .section-heading { font-size: 11px; font-weight: 700; color: #1a4a7a; text-transform: uppercase; letter-spacing: 1px; margin: 18px 0 12px; display: flex; align-items: center; gap: 8px; }
+    .section-heading::after { content: ''; flex: 1; border-top: 1px solid #dce3ed; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .form-group { margin-bottom: 12px; }
+    .form-label { font-size: 11px; font-weight: 700; color: #1a4a7a; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; display: block; }
+    input[type="text"], input[type="number"], select, textarea { width: 100%; background: #f4f6f9; border: 1px solid #dce3ed; border-radius: 8px; color: #0a2540; padding: 11px 14px; font-size: 14px; font-family: 'DM Sans', sans-serif; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #1a4a7a; }
+    textarea { resize: vertical; min-height: 90px; }
+    textarea::placeholder { color: #8a9ab0; }
+    select { cursor: pointer; }
+    .checkbox-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; }
+    .checkbox-item { display: flex; align-items: center; gap: 8px; background: #f4f6f9; border: 1px solid #dce3ed; border-radius: 8px; padding: 9px 12px; cursor: pointer; font-size: 13px; transition: border-color 0.15s; }
+    .checkbox-item:hover { border-color: #1a4a7a; }
+    .checkbox-item input[type="checkbox"] { width: 16px; height: 16px; min-width: 16px; cursor: pointer; accent-color: #1a4a7a; padding: 0; border: none; background: none; }
+    .tabs { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+    .tab-btn { background: #f4f6f9; color: #1a4a7a; border: 2px solid #dce3ed; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 0; transition: all 0.2s; letter-spacing: 0.3px; }
+    .tab-btn:hover { background: #e8edf5; border-color: #1a4a7a; }
+    .tab-btn.active { background: #1a4a7a; color: #fff; border-color: #1a4a7a; }
+    .field-section { display: none; }
+    .field-section.visible { display: block; }
+    button { background: #1a4a7a; color: #fff; border: none; border-radius: 8px; padding: 12px 28px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 12px; transition: background 0.2s; letter-spacing: 0.5px; }
+    button:hover { background: #0a2540; }
+    .btn-secondary { background: #f4f6f9; color: #1a4a7a; border: 1px solid #dce3ed; padding: 8px 16px; font-size: 12px; margin-top: 0; }
+    .btn-secondary:hover { background: #e8edf5; }
+    .btn-green { background: #0d5c46; padding: 8px 16px; font-size: 12px; margin-top: 0; }
+    .btn-green:hover { background: #0a2540; }
+    .response { background: #f4f6f9; border: 1px solid #dce3ed; border-radius: 8px; padding: 20px; margin-top: 16px; font-size: 14px; line-height: 1.85; color: #0a2540; white-space: pre-wrap; min-height: 80px; }
+    .logo-text { font-family: 'Playfair Display', serif; font-size: 11px; color: #aab4c4; letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
+    .btn-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+    .voice-bar { display: flex; align-items: center; gap: 14px; background: #f0f4ff; border: 1px solid #dce3ed; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; }
+    .mic-btn { width: 52px; height: 52px; min-width: 52px; border-radius: 50%; background: #1a4a7a; color: #fff; border: none; font-size: 22px; cursor: pointer; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 2px 8px rgba(26,74,122,0.3); }
+    .mic-btn:hover { background: #0a2540; transform: scale(1.05); }
+    .mic-btn.listening { background: #c0392b; animation: pulse 1.2s infinite; }
+    .mic-btn.speaking { background: #0d5c46; }
+    @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.4)} 50%{box-shadow:0 0 0 12px rgba(192,57,43,0)} }
+    .voice-status { font-size: 13px; color: #1a4a7a; font-weight: 700; }
+    .voice-status span { display: block; font-size: 11px; color: #8a9ab0; font-weight: 400; margin-top: 2px; }
+    .voice-controls { display: flex; gap: 8px; margin-left: auto; align-items: center; }
+    .voice-toggle { background: #f4f6f9; color: #1a4a7a; border: 1px solid #dce3ed; border-radius: 8px; padding: 6px 12px; font-size: 11px; font-weight: 700; cursor: pointer; margin: 0; }
+    .voice-toggle.on { background: #0d5c46; color: #fff; border-color: #0d5c46; }
+    .voice-name { font-size: 10px; color: #8a9ab0; margin-top: 3px; text-align: center; }
+    @media(max-width: 700px) {
+      .form-row, .form-row-3 { grid-template-columns: 1fr; }
+      .checkbox-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&amp;family=DM+Sans&amp;display=swap" rel="stylesheet">
+<style id="claude-agent-animation-styles">
+      @keyframes claude-pulse {
+        0% {
+          box-shadow: 
+            inset 0 0 10px rgba(217, 119, 87, 0.5),
+            inset 0 0 20px rgba(217, 119, 87, 0.3),
+            inset 0 0 30px rgba(217, 119, 87, 0.1);
+        }
+        50% {
+          box-shadow: 
+            inset 0 0 15px rgba(217, 119, 87, 0.7),
+            inset 0 0 25px rgba(217, 119, 87, 0.5),
+            inset 0 0 35px rgba(217, 119, 87, 0.2);
+        }
+        100% {
+          box-shadow: 
+            inset 0 0 10px rgba(217, 119, 87, 0.5),
+            inset 0 0 20px rgba(217, 119, 87, 0.3),
+            inset 0 0 30px rgba(217, 119, 87, 0.1);
+        }
+      }
+    </style></head>
+<body>
+
+<header>
+  <div>
+    <h1>Endeavor Agent</h1>
+    <p class="logo-text">Endeavor Evolution Enterprises — Powered by Claude AI</p>
+  </div>
+  <span class="status">● LIVE</span>
+</header>
+
+<div class="container">
+
+  <!-- CARD 1 — PERSONAL ASSISTANT AGENT -->
+  <div class="card">
+    <h2>🤖 Endeavor Agent — Personal Assistant</h2>
+    <p class="card-subtitle">Your AI Executive Assistant with full business knowledge. Speak to it or type — it talks back.</p>
+
+    <div class="voice-bar">
+      <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="Press to speak">🎤</button>
+      <div class="voice-status" id="voiceStatus">
+        Press mic to speak
+        <span id="voiceSubStatus">Voice ready</span>
+      </div>
+      <div class="voice-controls">
+        <div>
+          <button class="voice-toggle on" id="speakToggle" onclick="toggleSpeak()">🔊 Voice ON</button>
+          <div class="voice-name" id="voiceNameDisplay">🎙 Zoe (Enhanced)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs" id="agentTabs">
+      <button class="tab-btn active" onclick="setAgentModule(event,'')">💬 General</button>
+      <button class="tab-btn" onclick="setAgentModule(event,'Executive Assistant')">📅 Daily Agenda</button>
+      <button class="tab-btn" onclick="setAgentModule(event,'Client Intake')">👤 Qualify Lead</button>
+      <button class="tab-btn" onclick="setAgentModule(event,'Email Drafting')">✉️ Draft Email</button>
+      <button class="tab-btn" onclick="setAgentModule(event,'Credit Analysis')">📊 Credit Analysis</button>
+      <button class="tab-btn" onclick="setAgentModule(event,'LLC Formation')">🏢 LLC Formation</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Your Request</label>
+      <textarea id="agentInput" placeholder="Ask your agent anything, or press the mic button to speak..." style="min-height:110px;"></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button onclick="askAgent()">Ask Agent</button>
+      <button class="btn-green" onclick="generateDailyAgenda()">📅 Today's Agenda</button>
+      <button class="btn-secondary" onclick="clearAgentMemory()">🗑️ Clear Memory</button>
+    </div>
+
+    <div class="response" id="agentResponse">Your Endeavor Agent is ready. Press the mic button or type your request...</div>
+  </div><div id="leadIntelPanel" style="background:#fff;border-radius:16px;padding:28px;margin-bottom:28px;box-shadow:0 2px 16px rgba(10,37,64,0.10);"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;"><h2 style="font-family:'Playfair Display',serif;color:#0a2540;font-size:1.4rem;">🎯 Lead Intelligence</h2><button onclick="loadLeads()" style="background:#0d5c46;color:#fff;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;">↻ Refresh Leads</button></div><div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;"><button onclick="filterLeads('ALL')" id="filter-ALL" style="background:#0a2540;color:#fff;border:none;border-radius:20px;padding:6px 16px;cursor:pointer;">All</button><button onclick="filterLeads('CREDIT')" id="filter-CREDIT" style="background:#e8f0fe;color:#0a2540;border:none;border-radius:20px;padding:6px 16px;cursor:pointer;">Credit</button><button onclick="filterLeads('FUNDING')" id="filter-FUNDING" style="background:#e8f0fe;color:#0a2540;border:none;border-radius:20px;padding:6px 16px;cursor:pointer;">Funding</button><button onclick="filterLeads('LLC_FILING')" id="filter-LLC_FILING" style="background:#e8f0fe;color:#0a2540;border:none;border-radius:20px;padding:6px 16px;cursor:pointer;">LLC Filing</button><button onclick="filterLeads('MANAGEMENT')" id="filter-MANAGEMENT" style="background:#e8f0fe;color:#0a2540;border:none;border-radius:20px;padding:6px 16px;cursor:pointer;">Management</button></div><div id="leadList" style="display:flex;flex-direction:column;gap:10px;min-height:60px;"><p style="color:#888;">Click Refresh Leads to load your Monday CRM leads.</p></div><div id="leadDrawer" style="display:none;margin-top:24px;background:#f4f6f9;border-radius:12px;padding:24px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h3 id="drawerName" style="color:#0a2540;font-size:1.1rem;"></h3><button onclick="closeDrawer()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#888;">✕</button></div><div id="drawerInfo" style="font-size:0.9rem;color:#444;margin-bottom:16px;"></div><div style="display:flex;gap:8px;margin-bottom:16px;"><button onclick="showDrawerTab('email')" id="dtab-email" style="background:#0a2540;color:#fff;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;">Welcome Email</button><button onclick="showDrawerTab('prescreen')" id="dtab-prescreen" style="background:#e8f0fe;color:#0a2540;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;">Prescreen</button></div><div id="drawer-email"><div id="emailContent" style="background:#fff;border-radius:8px;padding:16px;font-size:0.88rem;white-space:pre-wrap;color:#222;max-height:300px;overflow-y:auto;border:1px solid #e0e0e0;"></div><button onclick="copyEmail()" style="margin-top:10px;background:#2dd4a0;color:#0a2540;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-weight:600;">Copy Email</button></div><div id="drawer-prescreen" style="display:none;"><div id="prescreenQuestions" style="display:flex;flex-direction:column;gap:12px;"></div><button onclick="submitPrescreen()" style="margin-top:14px;background:#0a2540;color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;">Get AI Verdict</button><div id="prescreenResult" style="margin-top:16px;background:#fff;border-radius:8px;padding:16px;font-size:0.88rem;white-space:pre-wrap;color:#222;display:none;border:1px solid #e0e0e0;"></div></div></div></div>
+
+  <!-- CARD 2 — FUNDING AI UNDERWRITER -->
+  <div class="card">
+    <h2>Funding — AI Underwriter &amp; Roadmap</h2>
+    <p class="card-subtitle">Enter the client's full financial profile. The AI underwriter will analyze it like a senior banker at Goldman Sachs or JPMorgan Chase and generate a complete tiered funding roadmap.</p>
+
+    <div class="section-heading">Client Identity</div>
+    <div class="form-row">
+      <div><label class="form-label">Client Full Name</label><input type="text" id="fClientName" placeholder="e.g. John Smith"></div>
+      <div><label class="form-label">Business Name</label><input type="text" id="fBusinessName" placeholder="e.g. Smith Logistics LLC"></div>
+    </div>
+    <div class="form-row">
+      <div>
+        <label class="form-label">Business Entity Type</label>
+        <select id="fEntityType">
+          <option value="">-- Select --</option>
+          <option>LLC</option><option>S-Corp</option><option>C-Corp</option>
+          <option>Sole Proprietor</option><option>Partnership</option>
+          <option>Nonprofit</option><option>No Entity Yet</option>
+        </select>
+      </div>
+      <div><label class="form-label">Industry / NAICS Code</label><input type="text" id="fIndustry" placeholder="e.g. Transportation / NAICS 484110"></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">State of Operation</label><input type="text" id="fState" placeholder="e.g. Florida"></div>
+      <div>
+        <label class="form-label">Time in Business</label>
+        <select id="fTimeInBusiness">
+          <option value="">-- Select --</option>
+          <option>Pre-Revenue / Startup</option><option>Less than 6 months</option>
+          <option>6-12 months</option><option>1-2 years</option>
+          <option>2-5 years</option><option>5+ years</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-heading">Credit Profile</div>
+    <div class="form-row-3">
+      <div><label class="form-label">Personal Credit Score</label><input type="number" id="fPersonalScore" placeholder="e.g. 680" min="300" max="850"></div>
+      <div><label class="form-label">Business Credit Score (if any)</label><input type="text" id="fBusinessScore" placeholder="e.g. Paydex 80 / D&amp;B 75"></div>
+      <div><label class="form-label">Number of Negative Items</label><input type="number" id="fNegativeItems" placeholder="e.g. 3" min="0"></div>
+    </div>
+    <div class="form-row">
+      <div>
+        <label class="form-label">Negative Item Types (check all that apply)</label>
+        <div class="checkbox-grid">
+          <label class="checkbox-item"><input type="checkbox" id="fHasCollections"> Collections</label>
+          <label class="checkbox-item"><input type="checkbox" id="fHasChargeoffs"> Charge-offs</label>
+          <label class="checkbox-item"><input type="checkbox" id="fHasLatePayments"> Late Payments</label>
+          <label class="checkbox-item"><input type="checkbox" id="fHasBankruptcy"> Bankruptcy</label>
+          <label class="checkbox-item"><input type="checkbox" id="fHasTaxLien"> Tax Lien / Judgment</label>
+          <label class="checkbox-item"><input type="checkbox" id="fHasForeclosure"> Foreclosure</label>
+        </div>
+      </div>
+      <div>
+        <label class="form-label">Personal Credit Utilization</label>
+        <select id="fUtilization">
+          <option value="">-- Select --</option>
+          <option value="Under 10%">Under 10% — Excellent</option>
+          <option value="10-30%">10-30% — Good</option>
+          <option value="30-50%">30-50% — Fair</option>
+          <option value="50-75%">50-75% — High</option>
+          <option value="Over 75%">Over 75% — Very High</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-heading">Financial Profile</div>
+    <div class="form-row-3">
+      <div><label class="form-label">Avg Monthly Revenue</label><input type="text" id="fMonthlyRevenue" placeholder="e.g. $25,000"></div>
+      <div><label class="form-label">Annual Gross Revenue</label><input type="text" id="fAnnualRevenue" placeholder="e.g. $300,000"></div>
+      <div><label class="form-label">Funding Amount Requested</label><input type="text" id="fFundingAmount" placeholder="e.g. $150,000"></div>
+    </div>
+    <div class="form-row-3">
+      <div><label class="form-label">Existing Business Debt</label><input type="text" id="fExistingDebt" placeholder="e.g. $40,000 or None"></div>
+      <div><label class="form-label">Monthly Debt Obligations</label><input type="text" id="fMonthlyDebt" placeholder="e.g. $2,500/mo or None"></div>
+      <div>
+        <label class="form-label">Business Bank Account Seasoning</label>
+        <select id="fBankSeasoning">
+          <option value="">-- Select --</option>
+          <option>No Business Bank Account</option>
+          <option>Less than 3 months</option><option>3-6 months</option>
+          <option>6-12 months</option><option>12+ months</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div>
+        <label class="form-label">Collateral Available</label>
+        <select id="fCollateral">
+          <option value="No collateral">No Collateral</option>
+          <option value="Real estate">Real Estate</option>
+          <option value="Equipment">Equipment</option>
+          <option value="Accounts receivable / invoices">Accounts Receivable / Invoices</option>
+          <option value="Inventory">Inventory</option>
+          <option value="Vehicle(s)">Vehicle(s)</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Purpose of Funding</label>
+        <select id="fPurpose">
+          <option value="">-- Select --</option>
+          <option>Working Capital</option><option>Equipment Purchase</option>
+          <option>Real Estate / Commercial Property</option><option>Business Acquisition</option>
+          <option>Expansion / Hiring</option><option>Inventory</option>
+          <option>Debt Consolidation</option><option>Startup Costs</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-heading">Business Credit Infrastructure</div>
+    <div class="form-row">
+      <div><label class="form-label">Business Credit Cards / Trade Lines (if any)</label><input type="text" id="fTradeLines" placeholder="e.g. 2 business cards, $10K limits / None"></div>
+      <div>
+        <label class="form-label">EIN / DUNS / Business Credit Profile Status</label>
+        <select id="fCreditInfra">
+          <option value="">-- Select --</option>
+          <option value="Has EIN, DUNS, and established business credit profile">Has EIN, DUNS, and established business credit profile</option>
+          <option value="Has EIN and DUNS but no business credit history">Has EIN and DUNS — no business credit history yet</option>
+          <option value="Has EIN only">Has EIN only</option>
+          <option value="No EIN, no DUNS, no business credit">No EIN, no DUNS, no business credit</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-heading">Additional Context &amp; Prior History</div>
+    <div class="form-group">
+      <label class="form-label">Prior Funding Attempts / Denials / Special Circumstances</label>
+      <textarea id="fNotes" placeholder="e.g. Denied by Chase last month — time in business too short. Has 20% equity in rental property."></textarea>
+    </div>
+
+    <button onclick="generateFundingRoadmap()">🏦 Generate AI Underwriter Roadmap</button>
+    <div class="response" id="fundingResponse">Your AI underwriter analysis and funding roadmap will appear here...</div>
+  </div>
+
+  <!-- CARD 3 — CREDIT DISPUTE LETTER GENERATOR -->
+  <div class="card">
+    <h2>Credit — Dispute Letter Generator</h2>
+
+    <div class="tabs" id="creditTabs">
+      <button class="tab-btn active" onclick="switchCreditTab(event,'bureau')">📋 Credit Bureau</button>
+      <button class="tab-btn" onclick="switchCreditTab(event,'collector')">🏦 Collection Company</button>
+      <button class="tab-btn" onclick="switchCreditTab(event,'creditor')">🏢 Original Creditor</button>
+      <button class="tab-btn" onclick="switchCreditTab(event,'cfpb')">🏛️ CFPB Complaint</button>
+    </div>
+
+    <div class="form-row">
+      <div><label class="form-label">Client Full Name</label><input type="text" id="creditClientName" placeholder="e.g. John Smith"></div>
+      <div><label class="form-label">Account / Creditor Name</label><input type="text" id="creditAccountName" placeholder="e.g. Portfolio Recovery Assoc."></div>
+    </div>
+    <div class="form-row">
+      <div>
+        <label class="form-label">Account Type</label>
+        <select id="creditAccountType">
+          <option value="">-- Select Type --</option>
+          <option>Collection Account</option><option>Auto Loan Charge-off</option>
+          <option>Late Payment</option><option>Medical Debt</option>
+          <option>Student Loan</option><option>Credit Card</option>
+          <option>Personal Loan</option><option>Mortgage</option>
+        </select>
+      </div>
+      <div><label class="form-label">Account / Reference Number (optional)</label><input type="text" id="creditAccountNumber" placeholder="e.g. XXXX-1234"></div>
+    </div>
+
+    <div class="field-section visible" id="section-bureau">
+      <div class="form-row">
+        <div>
+          <label class="form-label">Credit Bureau</label>
+          <select id="creditBureau">
+            <option value="">-- Select Bureau --</option>
+            <option>Equifax</option><option>Experian</option>
+            <option>TransUnion</option><option>All Three Bureaus</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Dispute Round</label>
+          <select id="creditRound">
+            <option value="">-- Select Round --</option>
+            <option value="Round 1 - Initial Bureau Dispute">Round 1 – Initial Dispute</option>
+            <option value="Round 2 - Reinvestigation Request">Round 2 – Reinvestigation Request</option>
+            <option value="Round 3 - Method of Verification Demand">Round 3 – Method of Verification Demand</option>
+            <option value="Round 4 - Final Demand / Legal Threat">Round 4 – Final Demand / Legal Threat</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dispute Reason</label>
+        <select id="creditDisputeReason">
+          <option value="">-- Select Reason --</option>
+          <option>Not My Account / Identity Theft</option>
+          <option>Account Already Paid in Full</option>
+          <option>Incorrect Balance Reported</option>
+          <option>Incorrect Payment Status</option>
+          <option>Duplicate Account</option>
+          <option>Statute of Limitations Expired</option>
+          <option>Included in Bankruptcy</option>
+          <option>Incorrect Personal Information</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-section" id="section-collector">
+      <div class="form-row">
+        <div><label class="form-label">Collection Company Name</label><input type="text" id="creditCollectorName" placeholder="e.g. Midland Credit Management"></div>
+        <div><label class="form-label">Alleged Debt Amount</label><input type="text" id="creditDebtAmount" placeholder="e.g. $1,250.00"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Letter Type</label>
+        <select id="creditCollectorLetterType">
+          <option value="Debt Validation Letter">Debt Validation Letter (FDCPA §809 / Reg F)</option>
+          <option value="Cease and Desist Letter">Cease and Desist Letter</option>
+          <option value="Pay for Delete Offer">Pay for Delete Offer</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-section" id="section-creditor">
+      <div class="form-row">
+        <div><label class="form-label">Original Creditor Name</label><input type="text" id="creditOriginalCreditor" placeholder="e.g. Capital One Bank"></div>
+        <div><label class="form-label">Date of Last Activity (optional)</label><input type="text" id="creditLastActivity" placeholder="e.g. January 2022"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dispute Reason (FCRA §623)</label>
+        <select id="creditFurnisherReason">
+          <option value="">-- Select Reason --</option>
+          <option>Inaccurate Information Reported to Bureaus</option>
+          <option>Account Paid — Should Be Removed</option>
+          <option>Account Sold to Collector But Still Reporting</option>
+          <option>Fraudulent Account — Not Opened by Client</option>
+          <option>Metro2 Reporting Standards Violation</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-section" id="section-cfpb">
+      <div class="form-row">
+        <div><label class="form-label">Company Being Complained About</label><input type="text" id="creditCfpbTarget" placeholder="e.g. Equifax / Portfolio Recovery"></div>
+        <div><label class="form-label">Prior Dispute Date (optional)</label><input type="text" id="creditPriorDisputeDate" placeholder="e.g. March 1, 2025"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Violation / Complaint Basis</label>
+        <select id="creditCfpbViolation">
+          <option value="">-- Select Basis --</option>
+          <option value="Bureau failed to investigate within 30 days (FCRA §611)">Bureau Failed to Investigate Within 30 Days (FCRA §611)</option>
+          <option value="Bureau verified inaccurate info without proper investigation">Bureau Verified Without Proper Investigation</option>
+          <option value="Collector continued collection activity after validation request (FDCPA §809)">Collector Continued Activity After Validation Request</option>
+          <option value="Creditor failed to correct inaccurate furnishing after notice (FCRA §623)">Creditor Failed to Correct After Notice (FCRA §623)</option>
+          <option value="Multiple FCRA and FDCPA violations">Multiple FCRA / FDCPA Violations</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top:10px;">
+      <label class="form-label">Additional Notes / Context</label>
+      <textarea id="creditNotes" placeholder="e.g. balance amount, date opened, prior responses received..." style="min-height:80px;"></textarea>
+    </div>
+
+    <button onclick="generateDispute()">Generate Letter</button>
+    <div class="response" id="creditResponse">Your letter will appear here...</div>
+  </div>
+
+  <!-- CARD 4 — NEWSLETTER -->
+  <div class="card">
+    <h2>Newsletter</h2>
+    <textarea id="newsletterInput" placeholder="Enter newsletter topic, key points, and any special announcements..."></textarea>
+    <button onclick="generateNewsletter()">Generate Newsletter Draft</button>
+    <div class="response" id="newsletterResponse">Newsletter draft will appear here...</div>
+  </div>
+
+</div>
+
+<script>
+  // ─── VOICE SYSTEM ───────────────────────────────────────────────────────
+  let recognition = null;
+  let isListening = false;
+  let speakEnabled = true;
+  let synth = window.speechSynthesis;
+  let selectedVoice = null;
+  let voiceInterval = null;
+
+  const PREFERRED_VOICE = 'Zoe (Enhanced)';
+
+  const FALLBACK_VOICES = [
+    'Zoe',
+    'Samantha (Enhanced)',
+    'Samantha',
+    'Ava (Enhanced)',
+    'Ava',
+    'Allison (Enhanced)',
+    'Allison',
+    'Karen',
+    'Moira',
+    'Daniel',
+    'Reed (English (United States))',
+    'Flo (English (United States))'
+  ];
+
+  function loadVoices() {
+    const voices = synth.getVoices();
+    if (!voices || voices.length === 0) return false;
+
+    // Try preferred voice first
+    let found = voices.find(v => v.name === PREFERRED_VOICE);
+
+    // Try fallbacks
+    if (!found) {
+      for (const name of FALLBACK_VOICES) {
+        found = voices.find(v => v.name === name);
+        if (found) break;
+      }
+    }
+
+    // Last resort — any local English voice
+    if (!found) {
+      found = voices.find(v => v.lang.startsWith('en') && v.localService === true) || voices[0];
+    }
+
+    if (found) {
+      selectedVoice = found;
+      document.getElementById('voiceNameDisplay').innerText = '🎙 ' + found.name;
+      document.getElementById('voiceSubStatus').innerText = 'Voice ready';
+      return true;
+    }
+    return false;
+  }
+
+  function startVoiceRetry() {
+    // Clear any existing interval
+    if (voiceInterval) clearInterval(voiceInterval);
+
+    let attempts = 0;
+    voiceInterval = setInterval(() => {
+      const voices = synth.getVoices();
+      const zoe = voices.find(v => v.name === PREFERRED_VOICE);
+
+      if (zoe) {
+        // Found Zoe — lock it in
+        selectedVoice = zoe;
+        document.getElementById('voiceNameDisplay').innerText = '🎙 ' + zoe.name;
+        document.getElementById('voiceSubStatus').innerText = 'Voice ready';
+        clearInterval(voiceInterval);
+      } else {
+        // Keep trying with best available
+        loadVoices();
+      }
+
+      attempts++;
+      if (attempts > 30) clearInterval(voiceInterval); // Stop after 15 seconds
+    }, 500);
+  }
+
+  function initVoice() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      document.getElementById('voiceSubStatus').innerText = 'Use Safari or Chrome for voice';
+      document.getElementById('micBtn').disabled = true;
+      return;
+    }
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      isListening = true;
+      document.getElementById('micBtn').classList.add('listening');
+      document.getElementById('micBtn').innerText = '⏹';
+      document.getElementById('voiceStatus').childNodes[0].textContent = 'Listening...';
+      document.getElementById('voiceSubStatus').innerText = 'Speak now';
+    };
+
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      document.getElementById('agentInput').value = transcript;
+      document.getElementById('voiceStatus').childNodes[0].textContent = 'Got it!';
+      document.getElementById('voiceSubStatus').innerText = '"' + transcript + '"';
+      askAgent(true);
+    };
+
+    recognition.onerror = (e) => {
+      setMicIdle();
+      document.getElementById('voiceSubStatus').innerText = 'Error: ' + e.error + ' — try again';
+    };
+
+    recognition.onend = () => { if (isListening) setMicIdle(); };
+  }
+
+  function setMicIdle() {
+    isListening = false;
+    document.getElementById('micBtn').classList.remove('listening', 'speaking');
+    document.getElementById('micBtn').innerText = '🎤';
+    document.getElementById('voiceStatus').childNodes[0].textContent = 'Press mic to speak';
+    document.getElementById('voiceSubStatus').innerText = selectedVoice ? '🎙 ' + selectedVoice.name : 'Voice ready';
+  }
+
+  function toggleVoice() {
+    if (!recognition) initVoice();
+    if (isListening) {
+      recognition.stop();
+      isListening = false;
+    } else {
+      synth.cancel();
+      recognition.start();
+    }
+  }
+
+  function toggleSpeak() {
+    speakEnabled = !speakEnabled;
+    const btn = document.getElementById('speakToggle');
+    btn.innerText = speakEnabled ? '🔊 Voice ON' : '🔇 Voice OFF';
+    btn.className = 'voice-toggle' + (speakEnabled ? ' on' : '');
+    if (!speakEnabled) synth.cancel();
+  }
+
+  function speakResponse(text) {
+    if (!speakEnabled) return;
+    synth.cancel();
+    const clean = text
+      .replace(/[📋🤖🏦🏢🏛️✅📅🔍💬👤✉️📊🏢🎤🔊🎙]/gu, '')
+      .replace(/={3,}/g, '.')
+      .replace(/─{3,}/g, '.')
+      .replace(/#{1,6}\s/g, '')
+      .replace(/\*\*/g, '')
+      .substring(0, 1500);
+
+    const utter = new SpeechSynthesisUtterance(clean);
+    utter.rate = 0.92;
+    utter.pitch = 1.0;
+    utter.volume = 1.0;
+    if (selectedVoice) utter.voice = selectedVoice;
+
+    document.getElementById('micBtn').classList.add('speaking');
+    document.getElementById('micBtn').innerText = '🔊';
+    document.getElementById('voiceStatus').childNodes[0].textContent = 'Agent speaking...';
+    document.getElementById('voiceSubStatus').innerText = 'Press mic to interrupt';
+
+    utter.onend = () => setMicIdle();
+    utter.onerror = () => setMicIdle();
+    synth.speak(utter);
+  }
+
+  // Safari-compatible voice loading with persistent retry
+  window.addEventListener('load', () => {
+    initVoice();
+    synth.onvoiceschanged = loadVoices;
+    loadVoices();
+    startVoiceRetry();
+  });
+
+  // ─── AGENT ──────────────────────────────────────────────────────────────
+  let agentModule = '';
+  let agentSessionId = 'session_' + Date.now();
+
+  function setAgentModule(e, module) {
+    agentModule = module;
+    document.querySelectorAll('#agentTabs .tab-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    const placeholders = {
+      '': 'Ask your agent anything, or press the mic button to speak...',
+      'Executive Assistant': 'e.g. Generate my agenda for today. I have 3 client calls, 2 dispute letters to send, and 1 new lead to follow up on.',
+      'Client Intake': 'e.g. New lead: Maria Garcia, 580 score, 6 collections, $28K debt, no business, Florida. Qualify her.',
+      'Email Drafting': 'e.g. Draft a follow-up email to a client named James who inquired about credit repair 3 days ago.',
+      'Credit Analysis': 'e.g. 4 collections from Portfolio Recovery, 1 auto charge-off from Santander. What is the dispute strategy?',
+      'LLC Formation': 'e.g. Client wants to form an LLC in Florida called Blue Wave Consulting. Single member. All steps and costs?'
+    };
+    document.getElementById('agentInput').placeholder = placeholders[module] || placeholders[''];
+  }
+
+  async function askAgent(fromVoice = false) {
+    const prompt = document.getElementById('agentInput').value;
+    if (!prompt) return;
+    document.getElementById('agentResponse').innerText = 'Agent thinking...';
+    document.getElementById('voiceStatus').childNodes[0].textContent = 'Agent thinking...';
+    document.getElementById('voiceSubStatus').innerText = 'Please wait';
+    try {
+      const res = await fetch('/api/agent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, sessionId: agentSessionId, module: agentModule })
+      });
+      const r = await res.json();
+      const response = r.response || r.error;
+      document.getElementById('agentResponse').innerText = response;
+      if (fromVoice || speakEnabled) speakResponse(response);
+    } catch(e) {
+      document.getElementById('agentResponse').innerText = 'Error: ' + e.message;
+      setMicIdle();
+    }
+  }
+
+  async function generateDailyAgenda() {
+    document.getElementById('agentResponse').innerText = 'Generating your daily agenda...';
+    try {
+      const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const res = await fetch('/api/agent/daily-agenda', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: today })
+      });
+      const r = await res.json();
+      const response = r.response || r.error;
+      document.getElementById('agentResponse').innerText = response;
+      speakResponse(response);
+    } catch(e) { document.getElementById('agentResponse').innerText = 'Error: ' + e.message; }
+  }
+
+  function clearAgentMemory() {
+    synth.cancel();
+    agentSessionId = 'session_' + Date.now();
+    document.getElementById('agentResponse').innerText = 'Memory cleared. Starting a fresh session.';
+    document.getElementById('agentInput').value = '';
+    setMicIdle();
+  }
+
+  // ─── CREDIT TABS ────────────────────────────────────────────────────────
+  let activeTab = 'bureau';
+
+  function switchCreditTab(e, tab) {
+    activeTab = tab;
+    document.querySelectorAll('#creditTabs .tab-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    document.querySelectorAll('.field-section').forEach(s => s.classList.remove('visible'));
+    document.getElementById('section-' + tab).classList.add('visible');
+  }
+
+  // ─── FUNDING ROADMAP ────────────────────────────────────────────────────
+  async function generateFundingRoadmap() {
+    const clientName    = document.getElementById('fClientName').value;
+    const personalScore = document.getElementById('fPersonalScore').value;
+    const monthlyRev    = document.getElementById('fMonthlyRevenue').value;
+    const fundingAmt    = document.getElementById('fFundingAmount').value;
+    if (!clientName || !personalScore || !monthlyRev || !fundingAmt) {
+      document.getElementById('fundingResponse').innerText = 'Please fill in: Client Name, Personal Credit Score, Monthly Revenue, and Funding Amount.';
+      return;
+    }
+    const negFlags = [];
+    if (document.getElementById('fHasCollections').checked)  negFlags.push('Collections');
+    if (document.getElementById('fHasChargeoffs').checked)   negFlags.push('Charge-offs');
+    if (document.getElementById('fHasLatePayments').checked) negFlags.push('Late Payments');
+    if (document.getElementById('fHasBankruptcy').checked)   negFlags.push('Bankruptcy');
+    if (document.getElementById('fHasTaxLien').checked)      negFlags.push('Tax Lien / Judgment');
+    if (document.getElementById('fHasForeclosure').checked)  negFlags.push('Foreclosure');
+    document.getElementById('fundingResponse').innerText = 'Analyzing client profile... generating AI underwriter roadmap...';
+    try {
+      const res = await fetch('/api/funding-roadmap', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName, businessName: document.getElementById('fBusinessName').value,
+          entityType: document.getElementById('fEntityType').value,
+          industry: document.getElementById('fIndustry').value,
+          state: document.getElementById('fState').value,
+          timeInBiz: document.getElementById('fTimeInBusiness').value,
+          personalScore, bizScore: document.getElementById('fBusinessScore').value,
+          negItems: document.getElementById('fNegativeItems').value, negFlags,
+          utilization: document.getElementById('fUtilization').value,
+          monthlyRev, annualRev: document.getElementById('fAnnualRevenue').value,
+          fundingAmt, existingDebt: document.getElementById('fExistingDebt').value,
+          monthlyDebt: document.getElementById('fMonthlyDebt').value,
+          bankSeasoning: document.getElementById('fBankSeasoning').value,
+          collateral: document.getElementById('fCollateral').value,
+          purpose: document.getElementById('fPurpose').value,
+          tradeLines: document.getElementById('fTradeLines').value,
+          creditInfra: document.getElementById('fCreditInfra').value,
+          notes: document.getElementById('fNotes').value
+        })
+      });
+      const r = await res.json();
+      document.getElementById('fundingResponse').innerText = r.response || r.error;
+    } catch(e) { document.getElementById('fundingResponse').innerText = 'Error: ' + e.message; }
+  }
+
+  // ─── DISPUTE LETTER ─────────────────────────────────────────────────────
+  async function generateDispute() {
+    const clientName    = document.getElementById('creditClientName').value;
+    const accountName   = document.getElementById('creditAccountName').value;
+    const accountType   = document.getElementById('creditAccountType').value;
+    const accountNumber = document.getElementById('creditAccountNumber').value;
+    const notes         = document.getElementById('creditNotes').value;
+    if (!clientName || !accountName || !accountType) {
+      document.getElementById('creditResponse').innerText = 'Please fill in Client Name, Account Name, and Account Type.';
+      return;
+    }
+    let payload = { clientName, accountName, accountType, accountNumber, notes, recipientType: activeTab };
+    if (activeTab === 'bureau') {
+      payload.bureau = document.getElementById('creditBureau').value;
+      payload.round = document.getElementById('creditRound').value;
+      payload.disputeReason = document.getElementById('creditDisputeReason').value;
+      if (!payload.bureau || !payload.round || !payload.disputeReason) {
+        document.getElementById('creditResponse').innerText = 'Please fill in Bureau, Dispute Round, and Dispute Reason.'; return;
+      }
+    } else if (activeTab === 'collector') {
+      payload.collectorName = document.getElementById('creditCollectorName').value;
+      payload.debtAmount = document.getElementById('creditDebtAmount').value;
+      payload.collectorLetterType = document.getElementById('creditCollectorLetterType').value;
+      if (!payload.collectorName) {
+        document.getElementById('creditResponse').innerText = 'Please enter the Collection Company Name.'; return;
+      }
+    } else if (activeTab === 'creditor') {
+      payload.originalCreditor = document.getElementById('creditOriginalCreditor').value;
+      payload.lastActivity = document.getElementById('creditLastActivity').value;
+      payload.furnisherReason = document.getElementById('creditFurnisherReason').value;
+      if (!payload.originalCreditor || !payload.furnisherReason) {
+        document.getElementById('creditResponse').innerText = 'Please fill in Original Creditor Name and Dispute Reason.'; return;
+      }
+    } else if (activeTab === 'cfpb') {
+      payload.cfpbTarget = document.getElementById('creditCfpbTarget').value;
+      payload.priorDisputeDate = document.getElementById('creditPriorDisputeDate').value;
+      payload.cfpbViolation = document.getElementById('creditCfpbViolation').value;
+      if (!payload.cfpbTarget || !payload.cfpbViolation) {
+        document.getElementById('creditResponse').innerText = 'Please fill in the company and violation basis.'; return;
+      }
+    }
+    document.getElementById('creditResponse').innerText = 'Generating letter...';
+    try {
+      const res = await fetch('/api/dispute', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const r = await res.json();
+      document.getElementById('creditResponse').innerText = r.response || r.error;
+    } catch(e) { document.getElementById('creditResponse').innerText = 'Error: ' + e.message; }
+  }
+
+  // ─── NEWSLETTER ─────────────────────────────────────────────────────────
+  async function generateNewsletter() {
+    const userInput = document.getElementById('newsletterInput').value;
+    if (!userInput) return;
+    document.getElementById('newsletterResponse').innerText = 'Generating newsletter draft...';
+    try {
+      const res = await fetch('/api/claude', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `You are the content director for Endeavor Evolution Enterprises. Generate a professional newsletter draft for the Endeavor Evolution Insider, a bi-weekly South Florida business newsletter.\n\nTopic/Notes: ${userInput}`
+        })
+      });
+      const r = await res.json();
+      document.getElementById('newsletterResponse').innerText = r.response || r.error || 'No response received';
+    } catch(e) { document.getElementById('newsletterResponse').innerText = 'Error: ' + e.message; }
+  }
+</script>
+<script>
+window._allLeads=[];window._currentFilter="ALL";window._activeLead=null;window._prescreenQs=[];
+async function loadLeads(){document.getElementById("leadList").innerHTML="<p style='color:#888'>Loading...</p>";try{var r=await fetch("/api/monday/leads");var d=await r.json();window._allLeads=d.leads||[];filterLeads(window._currentFilter);}catch(e){document.getElementById("leadList").innerHTML="<p style='color:red'>"+e.message+"</p>";}}
+function filterLeads(ws){window._currentFilter=ws;["ALL","CREDIT","FUNDING","LLC_FILING","MANAGEMENT"].forEach(function(f){var b=document.getElementById("filter-"+f);if(b){b.style.background=f===ws?"#0a2540":"#e8f0fe";b.style.color=f===ws?"#fff":"#0a2540";}});var leads=ws==="ALL"?window._allLeads:window._allLeads.filter(function(l){return l.workspace===ws;});renderLeads(leads);}
+function renderLeads(leads){var el=document.getElementById("leadList");if(!leads||!leads.length){el.innerHTML="<p style='color:#888'>No leads found.</p>";return;}var wc={CREDIT:"#e8f4ff",FUNDING:"#e8fff4",LLC_FILING:"#fff8e8",MANAGEMENT:"#f3e8ff"};var wl={CREDIT:"[Credit]",FUNDING:"[Funding]",LLC_FILING:"[LLC]",MANAGEMENT:"[Mgmt]"};var h="";for(var i=0;i<leads.length;i++){var l=leads[i];var enc=encodeURIComponent(JSON.stringify(l));var bg=wc[l.workspace]||"#f4f6f9";var tag=wl[l.workspace]||"";var badge=l.status?"<span style='background:#0a2540;color:#fff;border-radius:12px;padding:3px 10px;font-size:0.78rem;'>"+l.status+"</span>":"";h+="<div onclick='openLead(\""+enc+"\")' style='background:"+bg+";border-radius:10px;padding:14px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border:1px solid #e0e0e0;margin-bottom:4px;'><div><div style='font-weight:600;color:#0a2540;'>"+tag+" "+l.name+"</div><div style='font-size:0.82rem;color:#666;'>"+(l.service||"")+(l.email?" · "+l.email:"")+(l.phone?" · "+l.phone:"")+"</div></div><div>"+badge+"</div></div>";}el.innerHTML=h;}
+async function openLead(enc){var lead=JSON.parse(decodeURIComponent(enc));window._activeLead=lead;document.getElementById("leadDrawer").style.display="block";document.getElementById("drawerName").textContent=lead.name+" — "+(lead.service||lead.workspace);document.getElementById("drawerInfo").innerHTML="Email: "+(lead.email||"None")+"&nbsp;&nbsp;Phone: "+(lead.phone||"None")+"&nbsp;&nbsp;Status: "+(lead.status||"None");showDrawerTab("email");document.getElementById("emailContent").textContent="Generating welcome email...";try{var r=await fetch("/api/monday/leads/welcome-email",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({leadName:lead.name,email:lead.email,workspace:lead.workspace})});var d=await r.json();document.getElementById("emailContent").textContent="Subject: "+d.subject+"\n\n"+d.body;}catch(e){document.getElementById("emailContent").textContent="Error: "+e.message;}try{var r2=await fetch("/api/monday/leads/prescreen",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({leadName:lead.name,workspace:lead.workspace})});var d2=await r2.json();window._prescreenQs=d2.questions||[];var qh="";for(var i=0;i<window._prescreenQs.length;i++){qh+="<div><label style='font-size:0.85rem;font-weight:600;color:#0a2540;display:block;margin-bottom:4px;'>Q"+(i+1)+": "+window._prescreenQs[i]+"</label><input id='pq_"+i+"' type='text' placeholder='Enter answer...' style='width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;'/></div>";}document.getElementById("prescreenQuestions").innerHTML=qh;document.getElementById("prescreenResult").style.display="none";}catch(e){}}
+async function submitPrescreen(){var answers=[];for(var i=0;i<window._prescreenQs.length;i++){var el=document.getElementById("pq_"+i);answers.push(el?el.value:"");}var res=document.getElementById("prescreenResult");res.style.display="block";res.textContent="Evaluating lead...";try{var r=await fetch("/api/monday/leads/prescreen",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({leadName:window._activeLead.name,workspace:window._activeLead.workspace,answers:answers})});var d=await r.json();res.textContent=d.evaluation||d.error;var txt=d.evaluation||"";res.style.borderLeft=txt.indexOf("DISQUALIFIED")>-1?"4px solid #e53e3e":txt.indexOf("QUALIFIED")>-1?"4px solid #2dd4a0":"4px solid #f6ad55";}catch(e){res.textContent="Error: "+e.message;}}
+function showDrawerTab(tab){document.getElementById("drawer-email").style.display=tab==="email"?"block":"none";document.getElementById("drawer-prescreen").style.display=tab==="prescreen"?"block":"none";document.getElementById("dtab-email").style.background=tab==="email"?"#0a2540":"#e8f0fe";document.getElementById("dtab-email").style.color=tab==="email"?"#fff":"#0a2540";document.getElementById("dtab-prescreen").style.background=tab==="prescreen"?"#0a2540":"#e8f0fe";document.getElementById("dtab-prescreen").style.color=tab==="prescreen"?"#fff":"#0a2540";}
+function closeDrawer(){document.getElementById("leadDrawer").style.display="none";}
+function copyEmail(){navigator.clipboard.writeText(document.getElementById("emailContent").textContent).then(function(){alert("Email copied!");});}
+</script>
+</body></html>
