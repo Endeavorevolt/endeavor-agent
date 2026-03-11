@@ -374,8 +374,73 @@ app.post('/api/calendar/create', requireAuth, async (req, res) => {
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ─── Daily Agenda Route (protected) ──────────────────────────────────────────
+app.post('/api/agent/daily-agenda', requireAuth, async (req, res) => {
+  try {
+    const today = req.body.date || new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const completion = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: MASTER_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: `Generate a focused daily agenda for Witson at Endeavor Evolution Enterprises for ${today}. Include morning priorities, follow-up tasks, and end-of-day goals based on the business (Credit Repair, Funding, LLC Formation).` }],
+    });
+    res.json({ response: completion.content[0].text });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Funding Roadmap Route (protected) ───────────────────────────────────────
+app.post('/api/funding-roadmap', requireAuth, async (req, res) => {
+  try {
+    const prompt = req.body.prompt || 'Generate a funding roadmap';
+    const completion = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2048,
+      system: MASTER_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    res.json({ response: completion.content[0].text });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Dispute Letter Route (protected) ────────────────────────────────────────
+app.post('/api/dispute', requireAuth, async (req, res) => {
+  try {
+    const prompt = req.body.prompt || 'Generate a dispute letter';
+    const completion = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2048,
+      system: MASTER_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    res.json({ response: completion.content[0].text });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Claude general route (protected) ────────────────────────────────────────
+app.post('/api/claude', requireAuth, async (req, res) => {
+  try {
+    const prompt = req.body.prompt || req.body.message;
+    const completion = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2048,
+      system: MASTER_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    res.json({ response: completion.content[0].text });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Main Chat Route (protected) ─────────────────────────────────────────────
 app.post(['/api/chat', '/api/agent'], requireAuth, async (req, res) => {
+  // Accept both { message } and { prompt } from frontend
   const { message = req.body.prompt, history = [] } = req.body;
 
   try {
@@ -400,12 +465,12 @@ app.post(['/api/chat', '/api/agent'], requireAuth, async (req, res) => {
         else { board.leads.forEach(lead => { html += `• ${lead.name}<br>`; }); }
         html += '<br>';
       }
-      return res.json({ reply: html, action });
+      return res.json({ reply: html, response: html, action });
     }
 
     if (response.startsWith('ACTION:ONBOARDING')) {
       action = 'ONBOARDING';
-      return res.json({ reply: `<strong>🚀 New Lead Onboarding</strong><br><br>Please provide:<br>• Full Name<br>• Email Address<br>• Phone Number<br>• Service Needed (Credit / Funding / LLC)<br>• Notes`, action });
+      return res.json({ reply: `<strong>🚀 New Lead Onboarding</strong><br><br>Please provide:<br>• Full Name<br>• Email Address<br>• Phone Number<br>• Service Needed (Credit / Funding / LLC)<br>• Notes`, response: `<strong>🚀 New Lead Onboarding</strong><br><br>Please provide:<br>• Full Name<br>• Email Address<br>• Phone Number<br>• Service Needed (Credit / Funding / LLC)<br>• Notes`, action });
     }
 
     if (response.startsWith('ACTION:GET_TASKS')) {
@@ -422,7 +487,7 @@ app.post(['/api/chat', '/api/agent'], requireAuth, async (req, res) => {
           html += `• <strong>${title}</strong> — ${status}${due ? ' | Due: ' + due : ''}<br>`;
         });
       }
-      return res.json({ reply: html, action });
+      return res.json({ reply: html, response: html, action });
     }
 
     if (response.startsWith('ACTION:CREATE_TASK')) {
@@ -430,7 +495,7 @@ app.post(['/api/chat', '/api/agent'], requireAuth, async (req, res) => {
       const titleMatch = message.match(/task[:\s]+(.+)/i);
       const title = titleMatch ? titleMatch[1].trim() : message;
       await createNotionTask(title);
-      return res.json({ reply: `✅ Task created: <strong>${title}</strong>`, action });
+      return res.json({ reply: `✅ Task created: <strong>${title}</strong>`, response: `✅ Task created: <strong>${title}</strong>`, action });
     }
 
     if (response.startsWith('ACTION:GET_EMAILS')) {
@@ -445,7 +510,7 @@ app.post(['/api/chat', '/api/agent'], requireAuth, async (req, res) => {
           html += `<em>${e.snippet}</em><br><br>`;
         });
       }
-      return res.json({ reply: html, action });
+      return res.json({ reply: html, response: html, action });
     }
 
     if (response && response.startsWith('ACTION:SEND_EMAIL:')) {
@@ -454,7 +519,7 @@ app.post(['/api/chat', '/api/agent'], requireAuth, async (req, res) => {
         const jsonStr = response.replace('ACTION:SEND_EMAIL:', '').trim();
         const payload = JSON.parse(jsonStr);
         await sendGmail(payload);
-        return res.json({ reply: `✅ Email sent to <strong>${payload.to}</strong>`, action });
+        return res.json({ reply: `✅ Email sent to <strong>${payload.to}</strong>`, response: `✅ Email sent to <strong>${payload.to}</strong>`, action });
       } catch (parseErr) {
         const toMatch = message.match(/to[:\s]+([^\s,]+@[^\s,]+)/i);
         const subjectMatch = message.match(/subject[:\s]+([^,\.]+)/i);
@@ -462,9 +527,9 @@ app.post(['/api/chat', '/api/agent'], requireAuth, async (req, res) => {
         if (toMatch && subjectMatch && bodyMatch) {
           const payload = { to: toMatch[1].trim(), subject: subjectMatch[1].trim(), body: bodyMatch[1].trim() };
           await sendGmail(payload);
-          return res.json({ reply: `✅ Email sent to <strong>${payload.to}</strong>`, action });
+          return res.json({ reply: `✅ Email sent to <strong>${payload.to}</strong>`, response: `✅ Email sent to <strong>${payload.to}</strong>`, action });
         }
-        return res.json({ reply: '⚠️ Format: "Send email to name@email.com subject: Subject body: Message"', action });
+        return res.json({ reply: '⚠️ Format: "Send email to name@email.com subject: Subject body: Message"', response: '⚠️ Format: "Send email to name@email.com subject: Subject body: Message"', action });
       }
     }
 
@@ -480,15 +545,15 @@ app.post(['/api/chat', '/api/agent'], requireAuth, async (req, res) => {
           html += `• <strong>${e.summary || 'Untitled'}</strong>${date ? ' — ' + date : ''}<br>`;
         });
       }
-      return res.json({ reply: html, action });
+      return res.json({ reply: html, response: html, action });
     }
 
     if (response.startsWith('ACTION:CREATE_CALENDAR_EVENT')) {
       action = 'CREATE_CALENDAR_EVENT';
-      return res.json({ reply: `📅 To create an event, provide:<br>• Title<br>• Start date & time<br>• End date & time<br>• Description (optional)`, action });
+      return res.json({ reply: `📅 To create an event, provide:<br>• Title<br>• Start date & time<br>• End date & time<br>• Description (optional)`, response: `📅 To create an event, provide:<br>• Title<br>• Start date & time<br>• End date & time<br>• Description (optional)`, action });
     }
 
-    return res.json({ reply: response });
+    return res.json({ reply: response, response });
 
   } catch (err) {
     console.error('Chat error:', err.message);
