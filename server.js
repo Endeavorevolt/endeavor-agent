@@ -575,15 +575,148 @@ ${b.notes || 'None provided'}`;
   }
 });
 
+// ─── Elite Credit AI Dispute Engine System Prompt ────────────────────────────
+const DISPUTE_SYSTEM_PROMPT = `You are an elite consumer credit attorney–level dispute strategist with deep expertise in U.S. consumer credit law and dispute procedures.
+
+You possess the analytical capability of:
+• a senior consumer credit attorney
+• a former senior dispute investigator at a credit bureau
+
+You must analyze credit report accounts and produce legally grounded, strategic dispute escalation plans.
+You must not generate generic disputes.
+All dispute strategies must be precise, legally grounded, and strategically structured to maximize the probability of deletion, correction, or suppression of inaccurate reporting.
+
+LEGAL KNOWLEDGE BASE:
+• Fair Credit Reporting Act (FCRA)
+• Fair Debt Collection Practices Act (FDCPA)
+• Fair and Accurate Credit Transactions Act (FACTA)
+• Consumer Financial Protection Act
+• Truth in Lending Act (TILA)
+• Gramm-Leach-Bliley Act (GLBA)
+• Equal Credit Opportunity Act (ECOA)
+• Regulation F (Debt Collection Rules)
+
+CREDIT BUREAU OPERATIONAL KNOWLEDGE:
+You understand internal dispute workflows including:
+• Automated dispute verification (ACDV / e-OSCAR systems)
+• Furnisher verification processes
+• Code-based dispute handling
+• Frivolous dispute classification
+• Reinvestigation timelines
+• Verification vs validation standards
+
+DISPUTE ESCALATION ROUNDS:
+Round 1 — Initial Investigation Dispute: Challenge accuracy and completeness
+Round 2 — Validation & Documentation Demand: Require signed agreements, original contract, chain of assignment
+Round 3 — Procedural Challenge: Challenge adequacy of investigation, automated verification flaws
+Round 4 — Legal Compliance Dispute: Highlight statutory violations under federal consumer protection laws
+Round 5 — Formal Notice of Liability: Notify of potential legal liability, willful noncompliance
+Round 6 — Affidavit of Truth / Final Demand: Sworn factual challenge prior to arbitration or litigation
+
+DISPUTE REASON CODE LIBRARY:
+Identity & Ownership: DR001-DR009
+Account Status Errors: DR010-DR014
+Balance & Amount Errors: DR015-DR020
+Payment History Errors: DR021-DR025
+Date Errors: DR026-DR029
+Duplicate Reporting: DR030-DR032
+Validation Issues: DR033-DR037
+Debt Buyer Issues: DR038-DR040
+Investigation Issues: DR041-DR043
+Reporting Compliance: DR044-DR046
+Inquiry Disputes: DR047-DR048
+Collection Conduct: DR049-DR050
+
+VIOLATION FLAGS:
+VF001 — Failure to conduct reasonable investigation
+VF002 — Failure to mark account disputed
+VF003 — Reporting inaccurate information
+VF004 — Failure to verify disputed data
+VF005 — Continued reporting after dispute
+VF006 — Failure to provide validation documentation
+VF007 — Misrepresentation of debt ownership
+VF008 — Collection activity without validation
+
+CREDITOR-SPECIFIC TACTICS:
+Credit Bureaus: Challenge investigation quality, demand method of verification, challenge automated verification
+Collection Agencies: Debt validation, proof of assignment, chain of ownership
+Original Creditors: Accuracy disputes, documentation challenges, payment history verification
+
+OUTPUT REQUIREMENTS FOR EVERY DISPUTE:
+1. Dispute Strategy Analysis (targeted, not generic)
+2. Correct Dispute Recipient
+3. Dispute Round Classification
+4. Legal Basis with specific statute citations
+5. Applicable Dispute Reason Codes (DR codes)
+6. Detected Violation Flags (VF codes) if any
+7. Key Evidence Required
+8. Strategic Explanation
+9. Complete professional dispute letter
+
+Letters must be:
+• Professional and legally grounded
+• Fact-based with specific statute citations (FCRA §611, §609, §623, FDCPA §809, Reg F as appropriate)
+• Strategically structured for maximum deletion probability
+• Never aggressive or threatening — clear legal reasoning only
+• Formatted as a real letter with date, addresses, RE: line, and signature block`;
+
 // ─── Dispute Letter Route (protected) ────────────────────────────────────────
 app.post('/api/dispute', requireAuth, async (req, res) => {
   try {
-    const prompt = req.body.prompt || 'Generate a dispute letter';
+    const b = req.body;
+
+    // Build structured account profile from all form fields
+    const accountProfile = `
+DISPUTE REQUEST
+
+CLIENT INFORMATION:
+Client Name: ${b.clientName || 'Not provided'}
+Account / Creditor: ${b.accountName || 'Not provided'}
+Account Type: ${b.accountType || 'Not provided'}
+Account Number (Last 4): ${b.accountNumber || 'Not provided'}
+Notes / Additional Context: ${b.notes || 'None'}
+
+DISPUTE TARGET: ${b.recipientType || 'bureau'}
+
+${b.recipientType === 'bureau' || !b.recipientType ? `
+CREDIT BUREAU DISPUTE:
+Bureau: ${b.bureau || 'Not specified'}
+Dispute Round: ${b.round || 'Round 1'}
+Dispute Reason: ${b.disputeReason || 'Not specified'}
+` : ''}
+
+${b.recipientType === 'collector' ? `
+DEBT COLLECTOR DISPUTE:
+Collection Company: ${b.collectorName || 'Not specified'}
+Alleged Debt Amount: $${b.debtAmount || 'Not specified'}
+Letter Type: ${b.collectorLetterType || 'Debt Validation Letter'}
+` : ''}
+
+${b.recipientType === 'creditor' ? `
+ORIGINAL CREDITOR DISPUTE:
+Original Creditor: ${b.originalCreditor || 'Not specified'}
+Date of Last Activity: ${b.lastActivity || 'Not specified'}
+Dispute Reason (FCRA §623): ${b.furnisherReason || 'Not specified'}
+` : ''}
+
+${b.recipientType === 'cfpb' ? `
+CFPB COMPLAINT:
+Company Being Complained About: ${b.cfpbTarget || 'Not specified'}
+Prior Dispute Date: ${b.priorDisputeDate || 'Not specified'}
+Violation / Complaint Basis: ${b.cfpbViolation || 'Not specified'}
+` : ''}
+
+INSTRUCTIONS:
+Perform the full 8-step dispute analysis then generate the complete dispute letter.
+Select all applicable DR codes and VF flags.
+Cite specific federal statutes.
+The letter must be ready to send — complete with date, address block, RE: line, body, and signature.`;
+
     const completion = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4000,
-      system: MASTER_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: prompt }],
+      system: DISPUTE_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: accountProfile }],
     });
     res.json({ response: completion.content[0].text });
   } catch (err) {
@@ -853,34 +986,40 @@ If this is not a credit/financial document, still analyze it and extract any rel
   }
 });
 
-// ─── Generate dispute letter from extracted account ───────────────────────────
+// ─── Generate dispute letter from extracted account (File Reader) ─────────────
 app.post('/api/analyze-file/dispute', requireAuth, async (req, res) => {
   try {
     const { account, clientName } = req.body;
-    const prompt = `You are a credit repair specialist at Endeavor Evolution Enterprises LLC.
-    
-Generate a professional Round 1 dispute letter for the following account:
+    const accountProfile = `
+DISPUTE REQUEST FROM FILE ANALYSIS
 
-Client: ${clientName || 'Client'}
-Bureau: ${account.bureau}
-Original Creditor: ${account.originalCreditor}
+CLIENT: ${clientName || 'Client'}
+Bureau: ${account.bureau || 'Not specified'}
+Original Creditor: ${account.originalCreditor || 'Not specified'}
 Collection Company: ${account.collectionCompany || 'N/A'}
-Account Type: ${account.accountType}
+Account Type: ${account.accountType || 'Not specified'}
 Account Last 4: ${account.accountLast4 || 'Unknown'}
-Balance: ${account.balance}
+Balance: ${account.balance || 'Unknown'}
 Date of First Delinquency: ${account.dofd || 'Unknown'}
-Dispute Basis: ${account.disputeBasis}
+Status: ${account.status || 'Unknown'}
+Dispute Basis: ${account.disputeBasis || 'Inaccurate reporting'}
+Priority: ${account.priority || 'HIGH'}
+Notes: ${account.notes || 'None'}
 
-Write a complete, professional FCRA-compliant dispute letter ready to send to the credit bureau.
-Include all legal citations (FCRA §611, §609, §623 as appropriate).
-Format it as a real letter with date, addresses, and signature line.`;
+DISPUTE TARGET: ${account.collectionCompany ? 'collector' : 'bureau'}
+DISPUTE ROUND: Round 1 — Initial Investigation
+
+Perform the full 8-step dispute analysis then generate the complete Round 1 dispute letter.
+Select all applicable DR codes and VF flags.
+Cite specific federal statutes.
+The letter must be complete and ready to send.`;
 
     const completion = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
-      messages: [{ role: 'user', content: prompt }]
+      max_tokens: 4000,
+      system: DISPUTE_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: accountProfile }],
     });
-
     res.json({ letter: completion.content[0].text });
   } catch (err) {
     res.status(500).json({ error: err.message });
